@@ -13,7 +13,7 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(52);
+		playNote(4);
 	}
 
 	//key 3
@@ -21,7 +21,7 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(54);
+		playNote(6);
 	}
 
 	//key 5
@@ -29,14 +29,14 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(56);
+		playNote(8);
 	}
 	//key 6
 	var cKey = new Path.Rectangle(175,100,25,75);
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(57);
+		playNote(9);
 	}
 
 	//key 8
@@ -44,7 +44,7 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(59);
+		playNote(11);
 	}
 
 	//key 10
@@ -52,7 +52,7 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(61);
+		playNote(13);
 	}
 
 	//key 12
@@ -60,7 +60,7 @@
 	cKey.fillColor = 'white';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(63);
+		playNote(15);
 	}
 	
 	//black keys
@@ -69,36 +69,46 @@
 	cKey.fillColor = 'black';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(53);
+		playNote(5);
 	}
 	//key 4
 	var cKey = new Path.Rectangle(137,100,20,35);
 	cKey.fillColor = 'black';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(55);
+		playNote(7);
 	}	
 	//key 7
 	var cKey = new Path.Rectangle(187,100,20,35);
 	cKey.fillColor = 'black';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(58);
+		playNote(10);
 	}
 	//key 9
 	var cKey = new Path.Rectangle(212,100,20,35);
 	cKey.fillColor = 'black';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(60);
+		playNote(12);
 	}
 	//key 11
 	var cKey = new Path.Rectangle(237,100,20,35);
 	cKey.fillColor = 'black';
 	cKey.fullySelected = true;
 	cKey.onClick = function(event){
-		playNote(62);
+		playNote(14);
 	}
+	
+	//key D1
+	/*
+	var cKey = new Path.Rectangle(100,200,20,35);
+	cKey.fillColor = 'black';
+	cKey.fullySelected = true;
+	cKey.onClick = function(event){
+		playNote(50);
+	}
+	*/
 
 	
 </script>
@@ -114,19 +124,37 @@
 	
 	//play note
 	function playNote(key){
-	var freq = keyToFreq(key);
-	var osc = T("sin", {freq:freq, mul:0.5});
-	T("timeout", {timeout:500}).on("ended", function() {
-	  this.stop();
-	}).set({buddies:osc}).start();
+		var sel = document.getElementById("waveType");
+		var waveType = sel.options[sel.selectedIndex].value;
+		var vol = document.getElementById("volume").value;
+		var oct = document.getElementById("octave").value;
+		oct = Math.floor(oct/12) * 12;
+		//window.alert(oct);
+		var freq = keyToFreq(key+oct);
+		var osc = T(waveType, {freq:freq, mul:vol/100});
+		T("timeout", {timeout:500}).on("ended", function() {
+		  this.stop();
+		}).set({buddies:osc}).start();
 	}
-	
 
 
 
 </script>
 </head>
 <body>
+	<b>Wavetype: </b>
+	<select id = "waveType">
+		<option value="sin">sin</option>
+		<option value="tri">tri</option>
+		<option value="saw">saw</option>
+	</select>
+	<br>
+	<b>Octave: </b>
+	<input type="range" id="octave" value="50">
+	<br>
+	<b>Volume: </b>
+	<input type="range" id="volume" value="100">
 	<canvas id="myCanvas" resize></canvas>
+
 </body>
 </html>
