@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>sync-sounds</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+
+  <script type="text/javascript" src="js/paper-full.min.js"></script>
+  <script src="//cdn.socket.io/socket.io-1.2.0.js"></script>
+
+  <link rel="stylesheet" href="//paperjs.org/assets/css/style.css"/>
+  <script src="//paperjs.org/assets/js/paper.js"></script>
+
+  <script src="js/timbre.js"></script>
+
+<script>
+/*
+    Helper functions
+*/
+var getWidth = function() {
+  if (self.innerHeight) {
+    return self.innerWidth;
+  }
+
+  if (document.documentElement && document.documentElement.clientHeight) {
+    return document.documentElement.clientWidth;
+  }
+
+  if (document.body) {
+    return document.body.clientWidth;
+  }
+}
+
+var QueryString = function() {
+  // This function is anonymous, is executed immediately and 
+  // the return value is assigned to QueryString!
+  var query_string = {};
+  var query = window.location.search.substring(1);
+  var vars = query.split("&");
+  for (var i=0;i<vars.length;i++) {
+    var pair = vars[i].split("=");
+        // If first entry with this name
+    if (typeof query_string[pair[0]] === "undefined") {
+      query_string[pair[0]] = pair[1];
+        // If second entry with this name
+    } else if (typeof query_string[pair[0]] === "string") {
+      var arr = [ query_string[pair[0]], pair[1] ];
+      query_string[pair[0]] = arr;
+        // If third or later entry with this name
+    } else {
+      query_string[pair[0]].push(pair[1]);
+    }
+  } 
+    return query_string;
+}();
+</script>
+
+<script>
+  var socket = io();
+  var channel_id = QueryString.channel;
+  var player_name = 'Guest';
+
+  if (typeof channel_id == 'undefined') channel_id = 0;
+  
+  //key number to frequency
+  function keyToFreq(n) {
+    return Math.pow(2 , (n - 49) / 12) * 440;
+  }
+  
+
+  //example sequence
+  var soundArray = [[52,1,500],[53,0.7,600],[54,0.3,400],[55,0.8,800]];
+  var seqLength = soundArray.length;
+  var seqInd = 0
+   //sequence
+  var bpm = 600
+  var interval = setInterval(function() {playItem(soundArray[seqInd%seqLength])}, 700);
+  //Play Sequence
+  //Takes in an array with [pitch,volume,duration]
+  //pitch varies from 0-82
+  //volume from 0-1
+  //duration in ms
+	function playItem(soundItem){
+		var freq = keyToFreq(soundItem[0]);
+		var osc = T("sin", { freq: freq, mul: soundItem[1] });
+		T("timeout", { timeout: soundItem[2] }).on("ended", function() {
+		  this.stop();
+		  seqInd++;
+		}).set({ buddies:osc }).start();
+	}
+	
+   //play the sound
+  function playSound(sound_val) {
+    var freq = keyToFreq(sound_val);
+    var osc = T("sin", { freq: freq, mul: 0.1 });
+    T("timeout", { timeout: 500 }).on("ended", function() {
+      this.stop();
+    }).set({ buddies:osc }).start();
+  }
+
+  // play note: send signal to server and play sound
+  function playNote(note_id) {
+    var pack = {
+      'client': socket.io.engine.id,
+      'note_id': note_id
+    };
+    socket.emit('sync_sounds_station', pack);
+  }
+
+
+  function updateChannelInfo(channel_id) {
+    $.getJSON("get_patterns?channel=" + channel_id, function(data) {
+      $('t#patterns-text').text(data);
+      $('t#channel-id-text').text(channel_id);
+    });
+  }
+  updateChannelInfo(channel_id);
+
+  function changePlayerName() {
+    $('button#change-player-name-button').hide();
+    var new_name = $('#player-name-text').val();
+    player_name = new_name;
+
+    $.getJSON("update_player_name?client=" + socket.io.engine.id + "&name=" + new_name, function(data) {
+      $('button#change-player-name-button').show();
+      $('#player-name-text').val(new_name);
+    });
+  }
+
+  // play sounds from other players
+  socket.on('sync_sounds_station', function(msg) {
+
+    switch(msg.type) {
+      case 'sound':
+        if (channel_id == msg.channel) { 
+          playSound(msg.freq); 
+        }
+        break;
+
+      case 'update_channel':
+        if (socket.io.engine.id != msg.client) break;
+        var cur_channel_id = msg.channel;
+        channel_id = cur_channel_id;
+        updateChannelInfo(cur_channel_id);
+        break;
+    }
+  });
+</script>
+
+
+ <script type="text/paperscript" canvas="canvas">
+        var browser_width = getWidth();
+        var key_freq_arr = [];
+        var num_patterns = 5;
+        var key_note_x_arr = [];
+        var key_note_x_size = browser_width / num_patterns;
+        var currentPlayingKey = -1;
+        
+        key_note_x_arr.push(key_note_x_size);
+        for (var i = 1; i < num_patterns; i++) {
+          key_note_x_arr.push(key_note_x_arr[i - 1] + key_note_x_size);
+        }
+
+/*
+        console.log(browser_width);
+        console.log(key_note_x_size);
+        console.log(key_freq_arr);
+        console.log(key_note_x_arr);
+        console.log(key_note_x_arr.length);
+*/
+
+        var values = {
+            friction: 0.8,
+            timeStep: 0.01,
+            amount: 15,
+            mass: 2,
+            count: 0
+        };
+        values.invMass = 1 / values.mass;
+
+        var path, springs;
+        var size = view.size * [1.2, 1];
+
+        var Spring = function(a, b, strength, restLength) {
+            this.a = a;
+            this.b = b;
+            this.restLength = restLength || 80;
+            this.strength = strength ? strength : 0.55;
+            this.mamb = values.invMass * values.invMass;
+        };
+
+        Spring.prototype.update = function() {
+            var delta = this.b - this.a;
+            var dist = delta.length;
+            var normDistStrength = (dist - this.restLength) /
+                    (dist * this.mamb) * this.strength;
+            delta.y *= normDistStrength * values.invMass * 0.2;
+            if (!this.a.fixed) this.a.y += delta.y;
+            if (!this.b.fixed) this.b.y -= delta.y;
+        };
+
+
+        function checkCurrentTapPosition(x, y) {
+
+          for (var i = 0; i < key_note_x_arr.length; i++) {
+            if (x < key_note_x_arr[i]) {
+              if (currentPlayingKey == i) return;
+              currentPlayingKey = i;
+              //console.log(x + ' play key: ' + i + ' - ' + key_note_x_arr[i]);
+              //playNote(key_freq_arr[i]);
+              playNote(i);
+              return;
+            }
+          }
+        }
+
+        function createPath(strength) {
+            var path = new Path({
+                fillColor: '#00FF80'
+            });
+            springs = [];
+            for (var i = 0; i <= values.amount; i++) {
+                var segment = path.add(new Point(i / values.amount, 0.5) * size);
+                var point = segment.point;
+                if (i == 0 || i == values.amount)
+                    point.y += size.height;
+                point.px = point.x;
+                point.py = point.y;
+                // The first two and last two points are fixed:
+                point.fixed = i < 2 || i > values.amount - 2;
+                if (i > 0) {
+                    var spring = new Spring(segment.previous.point, point, strength);
+                    springs.push(spring);
+                }
+            }
+            path.position.x -= size.width / 4;
+            return path;
+        }
+
+        function onResize() {
+            if (path)
+                path.remove();
+            size = view.bounds.size * [2, 1];
+            path = createPath(0.1);
+        }
+
+        function onMouseMove(event) {
+            var location = path.getNearestLocation(event.point);
+            var segment = location.segment;
+            var point = segment.point;
+            //console.log(point.x + " - " + point.y);
+            checkCurrentTapPosition(point.x, point.y);
+
+            if (!point.fixed && location.distance < size.height / 4) {
+                var y = event.point.y;
+                point.y += (y - point.y) / 6;
+                if (segment.previous && !segment.previous.fixed) {
+                    var previous = segment.previous.point;
+                    previous.y += (y - previous.y) / 24;
+                }
+                if (segment.next && !segment.next.fixed) {
+                    var next = segment.next.point;
+                    next.y += (y - next.y) / 24;
+                }
+            }
+        }
+
+        function onFrame(event) {
+            updateWave(path);
+        }
+
+        function updateWave(path) {
+            var force = 1 - values.friction * values.timeStep * values.timeStep;
+            for (var i = 0, l = path.segments.length; i < l; i++) {
+                var point = path.segments[i].point;
+                var dy = (point.y - point.py) * force;
+                point.py = point.y;
+                point.y = Math.max(point.y + dy, 0);
+            }
+
+            for (var j = 0, l = springs.length; j < l; j++) {
+                springs[j].update();
+            }
+            path.smooth();
+        }
+
+    </script>
+
+<script>
+</script>
+
+</head>
+<body>
+  <div style="padding: 20px;">
+    <p>
+      <input id="player-name-text" value="Guest"/>
+      <button id="change-player-name-button" onclick="changePlayerName()">Update Name</button>
+    </p>
+    <p>
+      <h4>Channel <t id="channel-id-text"></t> Pattern Frequencies: <t id="patterns-text"></t></h4>
+    </p>
+  </div>
+  <canvas id="canvas" resize hidpi="off"></canvas>
+</body>
+</html>
