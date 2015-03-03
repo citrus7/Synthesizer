@@ -7,6 +7,16 @@
 <script type="text/paperscript" canvas="myCanvas">
 
 
+
+	//playSeq();
+	
+	//seq test
+	var cKey = new Path.Rectangle(150,200,75,75);
+	cKey.fillColor = 'yellow';
+	cKey.fullySelected = true;
+	cKey.onClick = function(event){
+		playSeq();
+	}
 	
 	//key 1
 	var cKey = new Path.Rectangle(100,100,25,75);
@@ -121,6 +131,8 @@
 	}
 	
 	var freq = 800;
+	//interval
+	var interval = setInterval(function() {playSeq()}, 700);
 	
 	//play note
 	function playNote(key){
@@ -135,8 +147,26 @@
 		T("timeout", {timeout:500}).on("ended", function() {
 		  this.stop();
 		}).set({buddies:osc}).start();
+		
 	}
+	var seq = [4,6,8,10];
+	var seqInd = 0;
+	function playSeq(){
+		var key = seq[seqInd%4];
+		var sel = document.getElementById("waveType");
+		var waveType = sel.options[sel.selectedIndex].value;
+		var vol = document.getElementById("volume").value;
+		var oct = document.getElementById("octave").value;
+		oct = Math.floor(oct/12) * 12;
 
+		var freq = keyToFreq(key+oct);
+
+		var osc = T(waveType, {freq:freq, mul:vol/100});
+		T("timeout", {timeout:500}).on("ended", function() {
+		  this.stop();
+		  seqInd++;
+		}).set({buddies:osc}).start();
+	}
 
 
 </script>
